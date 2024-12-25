@@ -27,7 +27,7 @@ public class Detector extends TcpClient implements State, Protocol
     private Equipment e1;
     //排水设备
     private Equipment e2;
-    //一个detector管理3个传感器，2个设备
+    //一个detector管理2个传感器，2个设备
     public Detector(){
         s1 = new Sensor();
         s2 = new Sensor();
@@ -42,9 +42,13 @@ public class Detector extends TcpClient implements State, Protocol
     }
     //合成所有的信息
     public String Conformity_Message(){
+        //8位
         String s1infor = convertTo8BitBinary(s1.getDetectnum());
+        //8位
         String s2infor = convertTo8BitBinary(s2.getDetectnum());
+        //1位
         String e1infor = e1.getSwitch();
+        //1位
         String e2infor = e2.getSwitch();
         String totalMessage = s1infor + s2infor + e1infor + e2infor;
         // 计算CRC-8校验码
@@ -96,7 +100,7 @@ public class Detector extends TcpClient implements State, Protocol
         {
         }
 
-        String message = Conformity_Message() + "[" + Thread.currentThread().getName() + "]";
+        String message = Conformity_Message();
         System.out.println("客户端要发送: " + message);
         return message;
     }
@@ -110,7 +114,59 @@ public class Detector extends TcpClient implements State, Protocol
     public void processMessage(String serverMessage)
     {
         System.out.println("客户端收到了服务端返回的: " + serverMessage);
+        if(this.check(serverMessage)){
+            String se1 = serverMessage.substring(16,17);
+            String se2 = serverMessage.substring(17,18);
+            if(se1.equals("1")&!e1.getSwitch().equals(se1)){
+                e1.setSwitch(se1);
+                this.setSleepTime(1000);
+                System.out.println("二氧化碳浓度高，风扇已打开");
+
+            } else if (se1.equals("0")&!e1.getSwitch().equals(se1)) {
+                e1.setSwitch(se1);
+                System.out.println("二氧化碳浓度正常，风扇关闭");
+                this.setSleepTime(5000);
+            }
+
+            if(se2.equals("1")&!e2.getSwitch().equals(se2)){
+                e2.setSwitch(se2);
+                System.out.println("水位升高，打开排水设备");
+            } else if (se2.equals("0")&!e2.getSwitch().equals(se2)) {
+                e2.setSwitch(se2);
+                System.out.println("水位正常，关闭排水设备");
+            }
+        }else{
+
+        }
     }
+
+    public  Boolean check(String receivedBinary) {
+        // 这里模拟接收到的二进制码，实际应用中应该是从网络接收等其他途径获取
+        boolean isValid = verifyMessage(receivedBinary);
+        if (isValid) {
+            System.out.println("接收到的二进制码验证通过，没有问题。");
+            return true;
+        } else {
+            System.out.println("接收到的二进制码验证不通过，可能出现了错误。");
+            return false;
+        }
+    }
+
+    // 验证接收到的二进制码是否正确的方法
+    public boolean verifyMessage(String receivedBinary) {
+        // 分离出信息部分和接收到的CRC校验码部分
+        String messagePart = receivedBinary.substring(0, receivedBinary.length() - 8);
+        String receivedCRC = receivedBinary.substring(receivedBinary.length() - 8);
+
+        // 重新计算信息部分的CRC校验码
+        int calculatedCRC = calculateCRC8(messagePart);
+
+        // 将重新计算的CRC校验码转换为8位二进制字符串
+        String calculatedCRC8Binary = convertTo8BitBinary(calculatedCRC);
+        // 比较重新计算的CRC校验码和接收到的CRC校验码是否一致
+        return calculatedCRC8Binary.equals(receivedCRC);
+    }
+
 
     /**
      * 设置状态
@@ -142,7 +198,7 @@ public class Detector extends TcpClient implements State, Protocol
     @Override
     public String protocolPacking(Object state)
     {
-        return null;
+        return Conformity_Message();
     }
 
     /**

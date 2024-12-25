@@ -30,8 +30,8 @@ public class Main
 
         // 启动客户端
         client1.start();
-        Thread.sleep(3000);
-        client2.start();
+        //Thread.sleep(3000);
+        //client2.start();
     }
 }
 
